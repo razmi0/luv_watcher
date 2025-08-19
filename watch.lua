@@ -37,16 +37,16 @@ function Watch:_spawn(err, filename)
             self.handle = nil
         end
     end
+    local function log(str) print("\x1b[90m" .. str .. "\x1b[0m") end
+    local function clear() log '\x1b[2J\x1b[H' end
 
     kill()
+    clear()
 
-    print '\x1b[2J\x1b[H'
     self.counter = self.counter + 1
-    print(
-        "\x1b[90m" ..
+    log(
         "(x" .. self.counter .. ") " ..
-        os.date("%d/%m %H:%M") ..
-        "\x1b[0m "
+        os.date("%d/%m %H:%M")
     )
 
     self.handle = uv.spawn(runtime,
@@ -57,7 +57,7 @@ function Watch:_spawn(err, filename)
         },
         function(code, signal) -- on exit
             if code == 0 then
-                print("Process exited with code 0" .. ", signal", signal)
+                log("Process exited code " .. code)
             end
             kill()
         end

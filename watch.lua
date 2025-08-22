@@ -27,6 +27,8 @@ function Watch:on(event, cb)
     return self
 end
 
+local function log(str) print("\x1b[90m" .. str .. "\x1b[0m") end
+local function clear() log '\x1b[2J\x1b[H' end
 function Watch:_spawn(err, filename)
     assert(not err, "\x1b[31mUnexpected Error\x1b[0m \n" .. inspect(self))
 
@@ -37,8 +39,6 @@ function Watch:_spawn(err, filename)
             self.handle = nil
         end
     end
-    local function log(str) print("\x1b[90m" .. str .. "\x1b[0m") end
-    local function clear() log '\x1b[2J\x1b[H' end
 
     kill()
     clear()
@@ -70,6 +70,7 @@ function Watch:run()
     local on_err = self.events["error"]
     local on_change = self.events["change"]
     local on_start = self.events["start"]
+
     local function debouncer(cb, delay)
         if timer_debouncer then uv.timer_stop(timer_debouncer) end
         timer_debouncer = uv.new_timer()
@@ -81,12 +82,21 @@ function Watch:run()
         end)
     end
 
+    -- stopping gracefully
+    local signal = uv.new_signal()
+    uv.signal_start(signal, "sigint", function(signame)
+        clear()
+        os.exit(1)
+    end)
+
+    -- at start
     uv.timer_start(timer_start, 0, 0, function()
         uv.timer_stop(timer_start)
         uv.close(timer_start)
         on_start(nil, self.path)
     end)
 
+    -- watcher
     ev:start(self.path, { watch_entry = false },
         function(err, filename, events)
             if err and on_err then
@@ -111,3 +121,5 @@ Watch.new(directory)
     :on("error", function(err, filename) print("[Error] : " .. filename .. err) end)
     :on("change")
     :run()
+
+return Watch

@@ -23,3 +23,14 @@ Watch the src directory and execute main.lua with luajit on any change.
 ```sh  
 luajit watch.lua luajit ./src main.lua  
 ```  
+
+Copy this :
+
+```lua
+local watcher, directory = require("watch"), "./src"
+watcher.new(directory)
+    :on("start")
+    :on("error", function(err, filename) print("[Error] : " .. filename .. err) end)
+    :on("change")
+    :run()
+```

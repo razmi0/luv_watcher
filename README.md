@@ -1,36 +1,17 @@
 # Watcher
 
-A directory watcher that executes a given script on change.
+A directory watcher that executes a given script ( options.executed_file) on change, on start or on error.
 
 ## Usage
 
-```bash
-luajit watch.lua <runtime> <watch_directory> <executed_file>
-```
-
-## Arguments
-
-Parameter | Description
--- | --
-runtime |The executable to run the file (e.g., luajit).
-watch_directory | The directory to monitor for changes.
-executed_file | The file to execute on change.
-
-## Example  
-
-Watch the src directory and execute main.lua with luajit on any change.  
-
-```sh  
-luajit watch.lua luajit ./src main.lua  
-```  
-
-Copy this :
+Watch directories ./ and ./src for change or error and reload main.lua using luajit runtima
 
 ```lua
-local watcher, directory = require("watch"), "./src"
-watcher.new(directory)
-    :on("start")
+local watch = require("lib.watch")
+watch.new({ "./", "./src" }, { runtime = "luajit", executed_file = "main.lua" })
+    :on("start", function() print("Starting..") end)
     :on("error", function(err, filename) print("[Error] : " .. filename .. err) end)
     :on("change")
     :run()
+
 ```

@@ -1,20 +1,17 @@
-#!/usr/bin/env luajit
 --
 local uv, inspect = require("luv"), require("inspect")
-local runtime, directory, executed_file = arg[1], arg[2], arg[3]
-if not directory or not executed_file then
-    error("\n\x1b[31mUsage : luajit w.lua <runtime> <watch_directory> <executed_file>\x1b[0m")
-    return
-end
 
 local Watch = {}
 Watch.__index = Watch
-function Watch.new(path)
+function Watch.new(paths, options)
     return setmetatable({
         events = {},
-        path = path or "./",
+        paths = paths or { "./" },
         handle = nil,
-        counter = 0
+        counter = 0,
+        recursive = options and options.recursive or false,
+        runtime = options and options.runtime or "luajit",
+        executed_file = options and options.executed_file or "main.lua"
     }, Watch)
 end
 
@@ -49,9 +46,9 @@ function Watch:_spawn(err, filename)
         os.date("%d/%m %H:%M")
     )
 
-    self.handle = uv.spawn(runtime,
+    self.handle = uv.spawn(self.runtime,
         {
-            args = { executed_file },
+            args = { self.executed_file },
             stdio = { 0, 1, 2 }, -- directly pipe child stds so no wrappers possible
 
         },
@@ -65,7 +62,6 @@ function Watch:_spawn(err, filename)
 end
 
 function Watch:run()
-    local ev = uv.new_fs_event()
     local timer_debouncer, timer_start = nil, uv.new_timer()
     local on_err = self.events["error"]
     local on_change = self.events["change"]
@@ -89,37 +85,38 @@ function Watch:run()
         os.exit(1)
     end)
 
-    -- at start
-    uv.timer_start(timer_start, 0, 0, function()
-        uv.timer_stop(timer_start)
-        uv.close(timer_start)
-        on_start(nil, self.path)
-    end)
+
 
     -- watcher
-    ev:start(self.path, { watch_entry = false },
-        function(err, filename, events)
-            if err and on_err then
-                on_err(err, filename)
-                return
-            end
+    for i = 1, #self.paths, 1 do
+        local ev = uv.new_fs_event()
 
-            if events.change and on_change then
-                debouncer(function()
-                    on_change(err, filename)
-                end, 50)
+        -- at start
+        uv.timer_start(timer_start, 0, 0, function()
+            uv.timer_stop(timer_start)
+            uv.close(timer_start)
+            on_start(nil, self.paths[i])
+        end)
+
+        ev:start(self.paths[i], { recursive = self.recursive },
+            function(err, filename, events)
+                if err and on_err then
+                    on_err(err, filename)
+                    return
+                end
+
+                if events.change and on_change then
+                    debouncer(function()
+                        on_change(err, filename)
+                    end, 50)
+                end
             end
-        end
-    )
+        )
+    end
 
     uv.run()
 end
 
 --
-Watch.new(directory)
-    :on("start", function() print("Starting..") end)
-    :on("error", function(err, filename) print("[Error] : " .. filename .. err) end)
-    :on("change")
-    :run()
 
 return Watch
